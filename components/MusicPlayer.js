@@ -19,7 +19,7 @@ const MusicPlayer = () => {
   const fileInputRef = useRef(null);
   const progressRef = useRef(null);
 
-  // Load playlist from localStorage on component mount
+  // Load playlist from localStorage on mount
   useEffect(() => {
     const savedPlaylist = localStorage.getItem('musicPlaylist');
     if (savedPlaylist) {
@@ -27,16 +27,10 @@ const MusicPlayer = () => {
       setPlaylist(parsedPlaylist);
       if (parsedPlaylist.length > 0) {
         setCurrentTrack(parsedPlaylist[0]);
+        setCurrentTrackIndex(0);
       }
     }
   }, []);
-
-  // Save playlist to localStorage whenever it changes
-  useEffect(() => {
-    if (playlist.length > 0) {
-      localStorage.setItem('musicPlaylist', JSON.stringify(playlist));
-    }
-  }, [playlist]);
 
   // Audio event listeners
   useEffect(() => {
@@ -63,19 +57,34 @@ const MusicPlayer = () => {
 
   const handleFileUpload = (event) => {
     const files = Array.from(event.target.files);
-    const audioFiles = files.filter(file => file.type.startsWith('audio/'));
-    
-    const newTracks = audioFiles.map(file => ({
+
+    // Filter ONLY mp3 files by MIME type and extension (extra safety)
+    const mp3Files = files.filter(file => {
+      const isAudioMIME = file.type === 'audio/mpeg';
+      const isMP3Ext = file.name.toLowerCase().endsWith('.mp3');
+      return isAudioMIME && isMP3Ext;
+    });
+
+    const invalidFilesCount = files.length - mp3Files.length;
+    if (invalidFilesCount > 0) {
+      alert(`Only MP3 files are supported. ${invalidFilesCount} file(s) were ignored.`);
+    }
+
+    if (mp3Files.length === 0) return; // no valid files, do nothing
+
+    const newTracks = mp3Files.map(file => ({
       id: Date.now() + Math.random(),
       name: file.name.replace(/\.[^/.]+$/, ''),
-      file: file,
       url: URL.createObjectURL(file),
-      duration: 0
     }));
 
-    setPlaylist(prev => [...prev, ...newTracks]);
-    
-    if (!currentTrack && newTracks.length > 0) {
+    setPlaylist(prev => {
+      const updated = [...prev, ...newTracks];
+      localStorage.setItem('musicPlaylist', JSON.stringify(updated));
+      return updated;
+    });
+
+    if (!currentTrack) {
       setCurrentTrack(newTracks[0]);
       setCurrentTrackIndex(playlist.length);
     }
@@ -145,7 +154,6 @@ const MusicPlayer = () => {
 
   return (
     <div className="w-full max-w-4xl mx-auto p-6 space-y-6">
-      {/* Hidden audio element */}
       {currentTrack && (
         <audio
           ref={audioRef}
@@ -163,7 +171,7 @@ const MusicPlayer = () => {
         <input
           ref={fileInputRef}
           type="file"
-          accept="audio/*"
+          accept=".mp3,audio/mpeg"
           multiple
           onChange={handleFileUpload}
           className="hidden"
@@ -174,7 +182,7 @@ const MusicPlayer = () => {
           size="lg"
         >
           <Upload className="w-5 h-5 mr-2" />
-          Upload Music Files
+          Upload MP3 Files
         </Button>
       </motion.div>
 
@@ -187,7 +195,6 @@ const MusicPlayer = () => {
             exit={{ opacity: 0, scale: 0.9 }}
           >
             <Card className="bg-white/10 backdrop-blur-md border border-white/20 p-8">
-              {/* Track Info */}
               <div className="text-center mb-8">
                 <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
                   <Music className="w-10 h-10 text-white" />
@@ -196,7 +203,6 @@ const MusicPlayer = () => {
                 <p className="text-white/70">Track {currentTrackIndex + 1} of {playlist.length}</p>
               </div>
 
-              {/* Progress Bar */}
               <div className="mb-6">
                 <div
                   ref={progressRef}
@@ -216,7 +222,6 @@ const MusicPlayer = () => {
                 </div>
               </div>
 
-              {/* Controls */}
               <div className="flex items-center justify-center space-x-4 mb-6">
                 <Button
                   variant="ghost"
@@ -247,7 +252,6 @@ const MusicPlayer = () => {
                 </Button>
               </div>
 
-              {/* Volume Control */}
               <div className="flex items-center justify-center space-x-3">
                 <Volume2 className="w-5 h-5 text-white/70" />
                 <input
@@ -265,7 +269,6 @@ const MusicPlayer = () => {
         )}
       </AnimatePresence>
 
-      {/* Playlist */}
       {playlist.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -304,7 +307,6 @@ const MusicPlayer = () => {
         </motion.div>
       )}
 
-      {/* Empty State */}
       {playlist.length === 0 && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -313,7 +315,7 @@ const MusicPlayer = () => {
         >
           <Music className="w-16 h-16 text-white/30 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-white/70 mb-2">No music uploaded</h3>
-          <p className="text-white/50">Upload your favorite tracks to get started</p>
+          <p className="text-white/50">Upload your MP3 files to get started</p>
         </motion.div>
       )}
     </div>
